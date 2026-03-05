@@ -37,7 +37,7 @@ jobs:
             --subnet-id "${{ secrets.OCI_SUBNET_ID }}" \
             --image-id "${{ secrets.OCI_IMAGE_ID }}" \
             --ssh-authorized-keys-file <(echo "${{ secrets.OCI_SSH_PUB_KEY }}") \
-            --boot-volume-size-in-gbs 47 \
+            --boot-volume-size-in-gbs 50 \
             --display-name "ampere-vm" \
             --assign-public-ip true \
             2>&1 || true)
