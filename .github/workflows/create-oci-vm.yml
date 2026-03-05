@@ -19,6 +19,8 @@ jobs:
           echo "${{ secrets.OCI_CONFIG }}" > ~/.oci/config
           echo "${{ secrets.OCI_KEY_PEM }}" > ~/.oci/key.pem
           chmod 600 ~/.oci/key.pem
+          chmod 600 ~/.oci/config
+          ls -la ~/.oci/   # debug: verificar permisos
 
       - name: Try to create Ampere VM
         id: create_vm
