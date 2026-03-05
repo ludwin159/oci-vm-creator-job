@@ -15,12 +15,14 @@ jobs:
 
       - name: Configure OCI credentials
         run: |
-          mkdir -p ~/.oci
-          echo "${{ secrets.OCI_CONFIG }}" > ~/.oci/config
-          echo "${{ secrets.OCI_KEY_PEM }}" > ~/.oci/key.pem
-          chmod 600 ~/.oci/key.pem
-          chmod 600 ~/.oci/config
-          ls -la ~/.oci/   # debug: verificar permisos
+          mkdir -p /home/runner/.oci
+          echo "${{ secrets.OCI_CONFIG }}" > /home/runner/.oci/config
+          echo "${{ secrets.OCI_KEY_PEM }}" > /home/runner/.oci/key.pem
+          chmod 600 /home/runner/.oci/key.pem
+          chmod 600 /home/runner/.oci/config
+          # Corregir la ruta del key en el config
+          sed -i 's|key_file=.*|key_file=/home/runner/.oci/key.pem|' /home/runner/.oci/config
+          cat /home/runner/.oci/config  # debug: verificar contenido
 
       - name: Try to create Ampere VM
         id: create_vm
