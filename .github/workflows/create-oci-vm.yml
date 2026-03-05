@@ -1,0 +1,97 @@
+name: OCI Ampere VM Creator
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'
+
+jobs:
+  create-vm:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Install OCI CLI
+        run: pip install oci-cli --quiet
+
+      - name: Configure OCI credentials
+        run: |
+          mkdir -p ~/.oci
+          echo "${{ secrets.OCI_CONFIG }}" > ~/.oci/config
+          echo "${{ secrets.OCI_KEY_PEM }}" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+
+      - name: Try to create Ampere VM
+        id: create_vm
+        run: |
+          echo "🔄 Intentando crear VM - $(date)"
+
+          OUTPUT=$(oci compute instance launch \
+            --availability-domain "${{ secrets.OCI_AD }}" \
+            --compartment-id "${{ secrets.OCI_COMPARTMENT_ID }}" \
+            --shape "VM.Standard.A1.Flex" \
+            --shape-config '{"ocpus": 3, "memoryInGBs": 18}' \
+            --subnet-id "${{ secrets.OCI_SUBNET_ID }}" \
+            --image-id "${{ secrets.OCI_IMAGE_ID }}" \
+            --ssh-authorized-keys-file <(echo "${{ secrets.OCI_SSH_PUB_KEY }}") \
+            --boot-volume-size-in-gbs 47 \
+            --display-name "ampere-vm" \
+            --assign-public-ip true \
+            2>&1 || true)
+
+          echo "OUTPUT<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          if echo "$OUTPUT" | grep -qE "PROVISIONING|RUNNING"; then
+            echo "created=true" >> $GITHUB_OUTPUT
+          elif echo "$OUTPUT" | grep -q "Out of host capacity"; then
+            echo "created=false" >> $GITHUB_OUTPUT
+            echo "reason=no_capacity" >> $GITHUB_OUTPUT
+          else
+            echo "created=false" >> $GITHUB_OUTPUT
+            echo "reason=unknown_error" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify success on Telegram
+        if: steps.create_vm.outputs.created == 'true'
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="Markdown" \
+            -d text="✅ *¡VM Ampere creada exitosamente!*
+
+🖥 *Nombre:* \`ampere-vm\`
+⚙️ *Shape:* VM.Standard.A1.Flex
+🔢 *oCPUs:* 3 | *RAM:* 18GB | *Boot:* 47GB
+🕐 *Hora:* $(date '+%Y-%m-%d %H:%M:%S UTC')
+
+👉 Revisa OCI Console para obtener la IP pública."
+
+      - name: Log no capacity
+        if: steps.create_vm.outputs.created == 'false' && steps.create_vm.outputs.reason == 'no_capacity'
+        run: echo "Sin capacidad disponible - $(date). Se reintentará en 10 minutos."
+
+      - name: Notify unexpected error on Telegram
+        if: steps.create_vm.outputs.created == 'false' && steps.create_vm.outputs.reason == 'unknown_error'
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="Markdown" \
+            -d text="⚠️ *Error inesperado en OCI VM Creator*
+Revisa los logs en GitHub Actions."
+
+      - name: Disable workflow after success
+        if: steps.create_vm.outputs.created == 'true'
+        run: |
+          curl -s -X PUT \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/create-oci-vm.yml/disable"
+```
+```
+4. Clic en "Commit changes" → "Commit changes"
+```
+
+## Paso 12: Probar manualmente
+```
+Repositorio → Actions → OCI Ampere VM Creator → Run workflow → Run workflow
