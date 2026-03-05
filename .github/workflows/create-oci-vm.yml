@@ -38,6 +38,11 @@ jobs:
             --assign-public-ip true \
             2>&1 || true)
 
+          # Debug: mostrar respuesta completa
+          echo "=== RESPUESTA OCI ==="
+          echo "$OUTPUT"
+          echo "=== FIN RESPUESTA ==="
+
           echo "OUTPUT<<EOF" >> $GITHUB_OUTPUT
           echo "$OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
